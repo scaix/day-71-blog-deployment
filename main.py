@@ -10,10 +10,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import relationship
 from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm
 import os
-from sendcontact import send
-# Optional: add contact me email functionality (Day 60)
-# import smtplib
-
+from sendcontact import send_contact_data
 
 '''
 Make sure the required packages are installed: 
@@ -55,7 +52,7 @@ gravatar = Gravatar(app,
                     base_url=None)
 
 # CONNECT TO DB
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///posts.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://default:************@ep-snowy-sound-35871316.us-east-1.postgres.vercel-storage.com:5432/verceldb'
 db = SQLAlchemy()
 db.init_app(app)
 
