@@ -52,7 +52,6 @@ gravatar = Gravatar(app,
                     base_url=None)
 
 # CONNECT TO DB
-# postgres://python3_stuff_user:eXuvU9j4VYnbJEqavOUQ78IwfXVI6JXJ@dpg-cl0e48as1bgc739mv450-a/python3_stuff
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('PYTHON_DB_URI')
 db = SQLAlchemy()
 db.init_app(app)
