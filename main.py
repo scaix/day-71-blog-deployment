@@ -52,7 +52,8 @@ gravatar = Gravatar(app,
                     base_url=None)
 
 # CONNECT TO DB
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://default:************@ep-snowy-sound-35871316.us-east-1.postgres.vercel-storage.com:5432/verceldb'
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://default:************@ep-snowy-sound-35871316.us-east-1.postgres.vercel-storage.com:5432/verceldb'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///posts.db'
 db = SQLAlchemy()
 db.init_app(app)
 
