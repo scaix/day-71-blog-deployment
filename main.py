@@ -1,7 +1,6 @@
 from datetime import date
 from flask import Flask, abort, render_template, redirect, url_for, flash, request
 from flask_bootstrap import Bootstrap5
-from flask_gravatar import Gravatar
 from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user
 from flask_sqlalchemy import SQLAlchemy
 from functools import wraps
@@ -9,6 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import relationship
 from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm
 import os
+import hashlib
 from sendcontact import send_contact_data
 
 """
@@ -28,6 +28,17 @@ This will install the packages from the requirements.txt for this project.
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("PYTHON_FLASK_KEY")
 Bootstrap5(app)
+
+# Gravatar filter — replaces Flask-Gravatar (unmaintained, broken on Flask 2.3+)
+@app.template_filter('gravatar')
+def gravatar_filter(email, size=100, rating='g', default='retro', force_default=False):
+    email_hash = hashlib.md5(email.strip().lower().encode('utf-8')).hexdigest()
+    return (
+        f"https://www.gravatar.com/avatar/{email_hash}"
+        f"?s={size}&d={default}&r={rating}"
+        + ("&f=y" if force_default else "")
+    )
+
 # Configure Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -36,19 +47,6 @@ login_manager.init_app(app)
 @login_manager.user_loader
 def load_user(user_id):
     return db.get_or_404(User, user_id)
-
-
-# For adding profile images to the comment section
-gravatar = Gravatar(
-    app,
-    size=100,
-    rating="g",
-    default="retro",
-    force_default=False,
-    force_lower=False,
-    use_ssl=False,
-    base_url=None,
-)
 
 # CONNECT TO DB
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("PYTHON_DB_URI")
