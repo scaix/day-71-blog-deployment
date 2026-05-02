@@ -1,6 +1,9 @@
 {% from "bootstrap5/form.html" import render_form %}
 {% include "header.html" %}
 
+<!-- Quill CSS -->
+<link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet" />
+
 <!-- Page Header-->
 <header class="masthead" style="background-image: url('{{post.img_url}}')">
   <div class="container position-relative px-4 px-lg-5">
@@ -11,7 +14,6 @@
           <h2 class="subheading">{{ post.subtitle }}</h2>
           <span class="meta"
             >Posted by
-            <!-- Changed from post.author -->
             <a href="#">{{ post.author.name }}</a>
             on {{ post.date }}
           </span>
@@ -39,12 +41,10 @@
         {% endif %}
 
         <!-- Comments Area -->
-        <!-- Load the CKEditor -->
-        {{ ckeditor.load() }}
-        <!-- Configure it with the name of the form field from CommentForm -->
-        {{ ckeditor.config(name='comment_text') }}
-        <!-- Create the wtf quick form from CommentForm -->
         {{ render_form(form, novalidate=True, button_map={"submit": "primary"}) }}
+        <!-- Quill editor for the comment field -->
+        <div id="quill-comment" style="height: 150px; margin-top: -1rem; margin-bottom: 1rem;"></div>
+
         <div class="comment">
           <ul class="commentList">
             <!-- Show all comments -->
@@ -62,11 +62,36 @@
             </li>
             {% endfor %}
           </ul>
-
         </div>
       </div>
     </div>
   </div>
 </article>
+
+<!-- Quill JS -->
+<script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
+<script>
+  const commentTextarea = document.querySelector('textarea[name="comment_text"]');
+
+  // Hide the raw textarea; Quill will be the visible editor
+  commentTextarea.style.display = 'none';
+
+  const quill = new Quill('#quill-comment', {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        ['bold', 'italic', 'underline'],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        ['link'],
+        ['clean']
+      ]
+    }
+  });
+
+  // Sync Quill content to the hidden textarea before form submission
+  commentTextarea.closest('form').addEventListener('submit', function () {
+    commentTextarea.value = quill.root.innerHTML;
+  });
+</script>
 
 {% include "footer.html" %}

@@ -25,15 +25,52 @@
   </div>
 </header>
 
+<!-- Quill CSS -->
+<link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet" />
+
 <main class="mb-4">
   <div class="container">
     <div class="row">
       <div class="col-lg-10 col-md-10 mx-auto">
-        {{ ckeditor.load() }}
-        {{ ckeditor.config(name='body') }}
         {{ render_form(form, novalidate=True, button_map={"submit": "primary"}) }}
+        <!-- Quill editor replaces the textarea for the body field -->
+        <div id="quill-editor" style="height: 300px; margin-top: -1rem; margin-bottom: 1rem;"></div>
       </div>
     </div>
   </div>
 </main>
+
+<!-- Quill JS -->
+<script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
+<script>
+  const bodyTextarea = document.querySelector('textarea[name="body"]');
+
+  // Hide the raw textarea; Quill will be the visible editor
+  bodyTextarea.style.display = 'none';
+
+  const quill = new Quill('#quill-editor', {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        [{ header: [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        ['blockquote', 'code-block'],
+        ['link', 'image'],
+        ['clean']
+      ]
+    }
+  });
+
+  // Pre-populate editor when editing an existing post
+  {% if form.body.data %}
+  quill.root.innerHTML = {{ form.body.data | tojson }};
+  {% endif %}
+
+  // Sync Quill content to the hidden textarea before form submission
+  bodyTextarea.closest('form').addEventListener('submit', function () {
+    bodyTextarea.value = quill.root.innerHTML;
+  });
+</script>
+
 {% include "footer.html" %} {% endblock %}
