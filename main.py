@@ -1,14 +1,18 @@
 from datetime import date
-from flask import Flask, abort, render_template, redirect, url_for, flash, request
+from flask import Flask, abort, render_template, redirect, url_for, flash, request, session
 from flask_bootstrap import Bootstrap5
-from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user
+from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user, login_required
 from flask_sqlalchemy import SQLAlchemy
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import relationship
-from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm
+from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, MFAForm
 import os
 import hashlib
+import io
+import base64
+import pyotp
+import qrcode
 from sendcontact import send_contact_data
 
 """
@@ -78,6 +82,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(100), unique=True)
     password = db.Column(db.String(100))
     name = db.Column(db.String(100))
+    totp_secret = db.Column(db.String(32), nullable=True, default=None)
     # This will act like a list of BlogPost objects attached to each User.
     # The "author" refers to the author property in the BlogPost class.
     posts = relationship("BlogPost", back_populates="author")
@@ -167,6 +172,10 @@ def login():
             flash("Password incorrect, please try again.")
             return redirect(url_for("login"))
         else:
+            # Admin with MFA enabled — require TOTP before granting session
+            if user.id == 1 and user.totp_secret:
+                session["mfa_pending_user_id"] = user.id
+                return redirect(url_for("mfa_verify"))
             login_user(user)
             return redirect(url_for("get_all_posts"))
 
@@ -177,6 +186,85 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for("get_all_posts"))
+
+
+@app.route("/mfa/setup", methods=["GET", "POST"])
+@login_required
+def mfa_setup():
+    """Allow the admin to enrol their authenticator app."""
+    if current_user.id != 1:
+        return abort(403)
+
+    form = MFAForm()
+
+    # Generate a fresh secret for this setup session (stored temporarily in session)
+    if "mfa_setup_secret" not in session:
+        session["mfa_setup_secret"] = pyotp.random_base32()
+
+    secret = session["mfa_setup_secret"]
+    totp = pyotp.TOTP(secret)
+    provisioning_uri = totp.provisioning_uri(
+        name=current_user.email,
+        issuer_name="My Flask Blog"
+    )
+
+    # Build QR code as a base64 PNG so no file I/O is needed
+    img = qrcode.make(provisioning_uri)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    qr_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+
+    if form.validate_on_submit():
+        if totp.verify(form.token.data, valid_window=1):
+            current_user.totp_secret = secret
+            db.session.commit()
+            session.pop("mfa_setup_secret", None)
+            flash("MFA has been enabled on your account.")
+            return redirect(url_for("get_all_posts"))
+        else:
+            flash("Invalid code — please try again.")
+
+    return render_template(
+        "mfa-setup.html",
+        form=form,
+        qr_b64=qr_b64,
+        secret=secret,
+        current_user=current_user,
+    )
+
+
+@app.route("/mfa/disable", methods=["POST"])
+@login_required
+def mfa_disable():
+    """Let the admin remove MFA from their account."""
+    if current_user.id != 1:
+        return abort(403)
+    current_user.totp_secret = None
+    db.session.commit()
+    flash("MFA has been disabled.")
+    return redirect(url_for("get_all_posts"))
+
+
+@app.route("/mfa/verify", methods=["GET", "POST"])
+def mfa_verify():
+    """Second-factor step after a successful password check."""
+    user_id = session.get("mfa_pending_user_id")
+    if not user_id:
+        return redirect(url_for("login"))
+
+    user = db.get_or_404(User, user_id)
+    form = MFAForm()
+
+    if form.validate_on_submit():
+        totp = pyotp.TOTP(user.totp_secret)
+        if totp.verify(form.token.data, valid_window=1):
+            session.pop("mfa_pending_user_id", None)
+            login_user(user)
+            return redirect(url_for("get_all_posts"))
+        else:
+            flash("Invalid code — please try again.")
+
+    return render_template("mfa-verify.html", form=form, current_user=current_user)
 
 
 @app.route("/")

@@ -89,6 +89,16 @@
                 >Log Out</a
               >
             </li>
+            {% if current_user.id == 1 %}
+            <li class="nav-item">
+              <a
+                class="nav-link px-lg-3 py-3 py-lg-4"
+                href="{{ url_for('mfa_setup') }}"
+                title="{{ 'MFA enabled' if current_user.totp_secret else 'MFA not set up' }}"
+                >🔐 MFA{% if current_user.totp_secret %} ✓{% endif %}</a
+              >
+            </li>
+            {% endif %}
             {% endif %}
             <li class="nav-item">
               <a
